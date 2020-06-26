@@ -1,0 +1,24 @@
+
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "test-example",
+            "cargo": {
+                "args": [
+                    "build",
+                    // "--bin=socketcan-rs",
+                    // "--package=socketcan",
+                    "--manifest-path=Cargo.toml",
+                    "--example=test"
+                ],
+                "filter": {
+                    "kind": "example"
+                }
+            },
+            "args": []
+        }
+    ]
+}

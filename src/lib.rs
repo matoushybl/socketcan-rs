@@ -44,11 +44,12 @@
 mod err;
 pub use crate::err::{CANError, CANErrorDecodingFailure};
 pub mod dump;
+pub mod canopen;
 
 #[cfg(test)]
 mod tests;
 
-use libc::{c_int, c_short, c_void, c_uint, socket, SOCK_RAW, close, bind, sockaddr, read, write,
+use libc::{c_int, c_short, c_void, c_uint, c_long, socket, SOCK_RAW, SOCK_DGRAM, close, bind, sockaddr, read, write, connect,
            setsockopt, SOL_SOCKET, SO_RCVTIMEO, timeval, EINPROGRESS, SO_SNDTIMEO, time_t,
            suseconds_t, fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 use itertools::Itertools;
@@ -104,6 +105,7 @@ impl<E: fmt::Debug> ShouldRetry for io::Result<E> {
 const AF_CAN: c_int = 29;
 const PF_CAN: c_int = 29;
 const CAN_RAW: c_int = 1;
+const CAN_BCM: c_int = 2;
 const SOL_CAN_BASE: c_int = 100;
 const SOL_CAN_RAW: c_int = SOL_CAN_BASE + CAN_RAW;
 const CAN_RAW_FILTER: c_int = 1;
@@ -142,6 +144,28 @@ struct CANAddr {
     if_index: c_int, // address familiy,
     rx_id: u32,
     tx_id: u32,
+}
+
+#[repr(C)]
+struct BCMInterval {
+    tv_sec: c_long,
+    tv_usec: c_long,
+}
+
+const BCM_SETTIMER: u16 = 0x0001;
+const BCM_STARTTIMER: u16 = 0x0002;
+const TX_SETUP: u32 = 1;
+
+#[repr(C)]
+struct BCMMessageHeader {
+    opcode: u32,
+    flags: u32,
+    count: u32,
+    ival1: BCMInterval,
+    ival2: BCMInterval,
+    can_id: u32,
+    nframes: u32,
+    frames: CANFrame,
 }
 
 #[derive(Debug)]
@@ -228,6 +252,7 @@ impl From<io::Error> for CANSocketOpenError {
 #[derive(Debug)]
 pub struct CANSocket {
     fd: c_int,
+    bcm_fd: c_int,
 }
 
 impl CANSocket {
@@ -256,8 +281,12 @@ impl CANSocket {
         unsafe {
             sock_fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
         }
+        let bcm_fd;
+        unsafe {
+            bcm_fd = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
+        }
 
-        if sock_fd == -1 {
+        if sock_fd == -1 || bcm_fd == -1 {
             return Err(CANSocketOpenError::from(io::Error::last_os_error()));
         }
 
@@ -278,12 +307,40 @@ impl CANSocket {
             return Err(CANSocketOpenError::from(e));
         }
 
-        Ok(CANSocket { fd: sock_fd })
+        // connect BCM
+        let bcm_addr = CANAddr {
+            _af_can: PF_CAN as c_short,
+            if_index: if_index as c_int,
+            rx_id: 0, // ?
+            tx_id: 0, // ?
+        };
+
+        let bcm_connect_result;
+        unsafe {
+            let addr_ptr = &bcm_addr as *const CANAddr;
+            bcm_connect_result = connect(bcm_fd, addr_ptr as *const sockaddr, size_of::<CANAddr>() as u32);
+        }
+
+        if bcm_connect_result == -1 {
+            let e = io::Error::last_os_error();
+            unsafe {
+                close(bcm_fd);
+            }
+            return Err(CANSocketOpenError::from(e));
+        }
+
+        Ok(CANSocket { fd: sock_fd, bcm_fd: bcm_fd })
     }
 
     fn close(&mut self) -> io::Result<()> {
         unsafe {
             let rv = close(self.fd);
+            if rv != -1 {
+                return Err(io::Error::last_os_error());
+            }
+        }
+        unsafe {
+            let rv = close(self.bcm_fd);
             if rv != -1 {
                 return Err(io::Error::last_os_error());
             }
@@ -415,6 +472,31 @@ impl CANSocket {
         }
     }
 
+    pub fn bcm_send_periodically(&self, microseconds: u64, frame: CANFrame) -> io::Result<()> {
+        let bcm_message = BCMMessageHeader {
+            opcode: TX_SETUP,
+            flags: (BCM_SETTIMER | BCM_STARTTIMER) as u32,
+            count: 0,
+            ival1: BCMInterval { tv_sec: 0, tv_usec: 0 },
+            ival2: BCMInterval { tv_sec: 0, tv_usec: microseconds as c_long },
+            can_id: frame._id,
+            nframes: 1,
+            frames: frame,
+        };
+
+        let write_result;
+        unsafe {
+            let message_ptr = &bcm_message as *const BCMMessageHeader;
+            write_result = write(self.bcm_fd, message_ptr as *const c_void, size_of::<BCMMessageHeader>() as usize);
+        }
+
+        if write_result == -1 {
+            return Err(io::Error::last_os_error());
+        }
+
+        return Ok(());
+    }
+
     /// Sets the filter mask on the socket.
     pub fn set_filter(&self, filters: &[CANFilter]) -> io::Result<()> {
 
@@ -490,12 +572,6 @@ impl CANSocket {
 impl AsRawFd for CANSocket {
     fn as_raw_fd(&self) -> RawFd {
         self.fd
-    }
-}
-
-impl FromRawFd for CANSocket {
-    unsafe fn from_raw_fd(fd: RawFd) -> CANSocket {
-        CANSocket { fd: fd }
     }
 }
 
@@ -623,6 +699,12 @@ impl CANFrame {
     #[inline(always)]
     pub fn error(&self) -> Result<CANError, CANErrorDecodingFailure> {
         CANError::from_frame(self)
+    }
+}
+
+impl fmt::Display for CANFrame {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ID: {:#x} RTR: {} DATA: {:?}", self.id(), self.is_rtr(), self.data())
     }
 }
 
