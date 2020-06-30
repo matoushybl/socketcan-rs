@@ -69,18 +69,18 @@ pub enum PDO {
 impl PDO {
     fn get_from_device_id(&self) -> u32 {
         match self {
-            PDO::PDO1 => 180,
-            PDO::PDO2 => 280,
-            PDO::PDO3 => 380,
-            PDO::PDO4 => 480,
+            PDO::PDO1 => 0x180,
+            PDO::PDO2 => 0x280,
+            PDO::PDO3 => 0x380,
+            PDO::PDO4 => 0x480,
         }
     }
     fn get_to_device_id(&self) -> u32 {
         match self {
-            PDO::PDO1 => 200,
-            PDO::PDO2 => 300,
-            PDO::PDO3 => 400,
-            PDO::PDO4 => 500,
+            PDO::PDO1 => 0x200,
+            PDO::PDO2 => 0x300,
+            PDO::PDO3 => 0x400,
+            PDO::PDO4 => 0x500,
         }
     }
 }
@@ -183,7 +183,7 @@ impl From<CANOpenNodeCommand> for CANFrame {
     fn from(command: CANOpenNodeCommand) -> Self {
         match command {
             CANOpenNodeCommand::SendPDO(id, pdo, data, size) => {
-                CANFrame::new(pdo.get_to_device_id() | id as u32, &data, false, false).unwrap()
+                CANFrame::new(pdo.get_to_device_id() | id as u32, &data[..size], false, false).unwrap()
             }
             CANOpenNodeCommand::SendNMT(id, command) => {
                 CANFrame::new(0x700 | id as u32, &[command.into()], false, false).unwrap()
@@ -196,9 +196,9 @@ impl From<CANOpenNodeCommand> for CANFrame {
 }
 
 pub enum CANOpenNodeCommand {
-    SendPDO(u8, PDO, [u8; 8], u8),
+    SendPDO(u8, PDO, [u8; 8], usize),
     SendNMT(u8, NMTCommand),
-    SendSDO(u8, SDOControlByte, u16, u8, [u8; 4], u8),
+    SendSDO(u8, SDOControlByte, u16, u8, [u8; 4], usize),
 }
 
 pub struct CANOpenNode {

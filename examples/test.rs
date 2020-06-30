@@ -24,7 +24,7 @@ impl TestNode {
             {
                 match frame {
                     CANOpenNodeMessage::SyncReceived => {
-                        sender.send(CANOpenNodeCommand::SendNMT(id, NMTCommand::ResetNode).into());
+                        // sender.send(CANOpenNodeCommand::SendNMT(id, NMTCommand::ResetNode).into());
                     }
                     CANOpenNodeMessage::PDOReceived(_, _, _) => {}
                     CANOpenNodeMessage::NMTReceived(_) => {}
