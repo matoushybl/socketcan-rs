@@ -1,5 +1,4 @@
-
-use crate::{CANSocket};
+use crate::CANSocket;
 
 #[test]
 fn test_nonexistant_device() {
@@ -10,11 +9,10 @@ fn test_nonexistant_device() {
 #[cfg(feature = "vcan_tests")]
 fn vcan0_timeout() {
     let cs = CANSocket::open("vcan0").unwrap();
-    cs.set_read_timeout(time::Duration::from_millis(100))
+    cs.set_read_timeout(std::time::Duration::from_millis(100))
         .unwrap();
     assert!(cs.read_frame().should_retry());
 }
-
 
 #[test]
 #[cfg(feature = "vcan_tests")]

@@ -43,20 +43,22 @@
 
 mod err;
 pub use crate::err::{CANError, CANErrorDecodingFailure};
-pub mod dump;
 pub mod canopen;
+pub mod dump;
 
 #[cfg(test)]
 mod tests;
 
-use libc::{c_int, c_short, c_void, c_uint, c_long, socket, SOCK_RAW, SOCK_DGRAM, close, bind, sockaddr, read, write, connect,
-           setsockopt, SOL_SOCKET, SO_RCVTIMEO, timeval, EINPROGRESS, SO_SNDTIMEO, time_t,
-           suseconds_t, fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 use itertools::Itertools;
-use std::{error, fmt, io, time};
-use std::mem::size_of;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use libc::{
+    bind, c_int, c_long, c_short, c_uint, c_void, close, connect, fcntl, read, setsockopt,
+    sockaddr, socket, suseconds_t, time_t, timeval, write, EINPROGRESS, F_GETFL, F_SETFL,
+    O_NONBLOCK, SOCK_DGRAM, SOCK_RAW, SOL_SOCKET, SO_RCVTIMEO, SO_SNDTIMEO,
+};
 use nix::net::if_::if_nametoindex;
+use std::mem::size_of;
+use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
+use std::{error, fmt, io, time};
 
 /// Check an error return value for timeouts.
 ///
@@ -129,7 +131,6 @@ pub const EFF_MASK: u32 = 0x1fffffff;
 /// valid bits in error frame
 pub const ERR_MASK: u32 = 0x1fffffff;
 
-
 fn c_timeval_new(t: time::Duration) -> timeval {
     timeval {
         tv_sec: t.as_secs() as time_t,
@@ -195,14 +196,13 @@ impl error::Error for CANSocketOpenError {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             CANSocketOpenError::LookupError(ref e) => Some(e),
             CANSocketOpenError::IOError(ref e) => Some(e),
         }
     }
 }
-
 
 #[derive(Debug, Copy, Clone)]
 /// Error that occurs when creating CAN packets
@@ -294,9 +294,11 @@ impl CANSocket {
         let bind_rv;
         unsafe {
             let sockaddr_ptr = &addr as *const CANAddr;
-            bind_rv = bind(sock_fd,
-                           sockaddr_ptr as *const sockaddr,
-                           size_of::<CANAddr>() as u32);
+            bind_rv = bind(
+                sock_fd,
+                sockaddr_ptr as *const sockaddr,
+                size_of::<CANAddr>() as u32,
+            );
         }
 
         if bind_rv == -1 {
@@ -318,7 +320,11 @@ impl CANSocket {
         let bcm_connect_result;
         unsafe {
             let addr_ptr = &bcm_addr as *const CANAddr;
-            bcm_connect_result = connect(bcm_fd, addr_ptr as *const sockaddr, size_of::<CANAddr>() as u32);
+            bcm_connect_result = connect(
+                bcm_fd,
+                addr_ptr as *const sockaddr,
+                size_of::<CANAddr>() as u32,
+            );
         }
 
         if bcm_connect_result == -1 {
@@ -329,7 +335,10 @@ impl CANSocket {
             return Err(CANSocketOpenError::from(e));
         }
 
-        Ok(CANSocket { fd: sock_fd, bcm_fd: bcm_fd })
+        Ok(CANSocket {
+            fd: sock_fd,
+            bcm_fd: bcm_fd,
+        })
     }
 
     fn close(&mut self) -> io::Result<()> {
@@ -379,11 +388,13 @@ impl CANSocket {
         let rv = unsafe {
             let tv = c_timeval_new(duration);
             let tv_ptr: *const timeval = &tv as *const timeval;
-            setsockopt(self.fd,
-                       SOL_SOCKET,
-                       SO_RCVTIMEO,
-                       tv_ptr as *const c_void,
-                       size_of::<timeval>() as u32)
+            setsockopt(
+                self.fd,
+                SOL_SOCKET,
+                SO_RCVTIMEO,
+                tv_ptr as *const c_void,
+                size_of::<timeval>() as u32,
+            )
         };
 
         if rv != 0 {
@@ -398,11 +409,13 @@ impl CANSocket {
         let rv = unsafe {
             let tv = c_timeval_new(duration);
             let tv_ptr: *const timeval = &tv as *const timeval;
-            setsockopt(self.fd,
-                       SOL_SOCKET,
-                       SO_SNDTIMEO,
-                       tv_ptr as *const c_void,
-                       size_of::<timeval>() as u32)
+            setsockopt(
+                self.fd,
+                SOL_SOCKET,
+                SO_SNDTIMEO,
+                tv_ptr as *const c_void,
+                size_of::<timeval>() as u32,
+            )
         };
 
         if rv != 0 {
@@ -477,8 +490,14 @@ impl CANSocket {
             opcode: TX_SETUP,
             flags: (BCM_SETTIMER | BCM_STARTTIMER) as u32,
             count: 0,
-            ival1: BCMInterval { tv_sec: 0, tv_usec: 0 },
-            ival2: BCMInterval { tv_sec: 0, tv_usec: microseconds as c_long },
+            ival1: BCMInterval {
+                tv_sec: 0,
+                tv_usec: 0,
+            },
+            ival2: BCMInterval {
+                tv_sec: 0,
+                tv_usec: microseconds as c_long,
+            },
             can_id: frame._id,
             nframes: 1,
             frames: frame,
@@ -487,7 +506,11 @@ impl CANSocket {
         let write_result;
         unsafe {
             let message_ptr = &bcm_message as *const BCMMessageHeader;
-            write_result = write(self.bcm_fd, message_ptr as *const c_void, size_of::<BCMMessageHeader>() as usize);
+            write_result = write(
+                self.bcm_fd,
+                message_ptr as *const c_void,
+                size_of::<BCMMessageHeader>() as usize,
+            );
         }
 
         if write_result == -1 {
@@ -499,7 +522,6 @@ impl CANSocket {
 
     /// Sets the filter mask on the socket.
     pub fn set_filter(&self, filters: &[CANFilter]) -> io::Result<()> {
-
         // TODO: Handle different *_FILTER sockopts.
 
         let rv = if filters.len() < 1 {
@@ -508,11 +530,13 @@ impl CANSocket {
         } else {
             unsafe {
                 let filters_ptr = &filters[0] as *const CANFilter;
-                setsockopt(self.fd,
-                           SOL_CAN_RAW,
-                           CAN_RAW_FILTER,
-                           filters_ptr as *const c_void,
-                           (size_of::<CANFilter>() * filters.len()) as u32)
+                setsockopt(
+                    self.fd,
+                    SOL_CAN_RAW,
+                    CAN_RAW_FILTER,
+                    filters_ptr as *const c_void,
+                    (size_of::<CANFilter>() * filters.len()) as u32,
+                )
             }
         };
 
@@ -543,11 +567,13 @@ impl CANSocket {
     #[inline(always)]
     pub fn set_error_filter(&self, mask: u32) -> io::Result<()> {
         let rv = unsafe {
-            setsockopt(self.fd,
-                       SOL_CAN_RAW,
-                       CAN_RAW_ERR_FILTER,
-                       (&mask as *const u32) as *const c_void,
-                       size_of::<u32>() as u32)
+            setsockopt(
+                self.fd,
+                SOL_CAN_RAW,
+                CAN_RAW_ERR_FILTER,
+                (&mask as *const u32) as *const c_void,
+                size_of::<u32>() as u32,
+            )
         };
 
         if rv != 0 {
@@ -555,7 +581,6 @@ impl CANSocket {
         }
 
         Ok(())
-
     }
 
     #[inline(always)]
@@ -630,7 +655,6 @@ impl CANFrame {
             _id |= EFF_FLAG;
         }
 
-
         if rtr {
             _id |= RTR_FLAG;
         }
@@ -647,13 +671,13 @@ impl CANFrame {
         }
 
         Ok(CANFrame {
-               _id: _id,
-               _data_len: data.len() as u8,
-               _pad: 0,
-               _res0: 0,
-               _res1: 0,
-               _data: full_data,
-           })
+            _id: _id,
+            _data_len: data.len() as u8,
+            _pad: 0,
+            _res0: 0,
+            _res1: 0,
+            _data: full_data,
+        })
     }
 
     /// Return the actual CAN ID (without EFF/RTR/ERR flags)
@@ -704,7 +728,13 @@ impl CANFrame {
 
 impl fmt::Display for CANFrame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ID: {:#x} RTR: {} DATA: {:?}", self.id(), self.is_rtr(), self.data())
+        write!(
+            f,
+            "ID: {:#x} RTR: {} DATA: {:?}",
+            self.id(),
+            self.is_rtr(),
+            self.data()
+        )
     }
 }
 
@@ -733,8 +763,8 @@ pub struct CANFilter {
 impl CANFilter {
     pub fn new(id: u32, mask: u32) -> Result<CANFilter, ConstructionError> {
         Ok(CANFilter {
-               _id: id,
-               _mask: mask,
-           })
+            _id: id,
+            _mask: mask,
+        })
     }
 }

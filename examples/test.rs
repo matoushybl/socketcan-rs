@@ -1,11 +1,6 @@
 extern crate socketcan;
 
-use socketcan::canopen::{
-    CANOpen, CANOpenNode, CANOpenNodeCommand, CANOpenNodeMessage, NMTCommand,
-};
-use socketcan::CANFrame;
-use socketcan::CANSocket;
-use std::time::Duration;
+use socketcan::canopen::{CANOpen, CANOpenNode, CANOpenNodeMessage};
 
 struct TestNode {
     id: u8,
@@ -39,6 +34,6 @@ impl TestNode {
 
 fn main() {
     let can_open = CANOpen::new("can0", 50000).unwrap();
-    let device = TestNode::new(&can_open, 5);
+    let _device = TestNode::new(&can_open, 5);
     loop {}
 }

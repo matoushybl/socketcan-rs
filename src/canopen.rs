@@ -1,6 +1,8 @@
 use super::*;
-use byteorder::{ByteOrder, LittleEndian};
+use colored::Color;
 use crossbeam;
+use fern::colors::ColoredLevelConfig;
+use log::debug;
 use std::time::Duration;
 
 pub struct CANOpen {
@@ -16,20 +18,49 @@ pub struct CANOpenHandle {
 
 impl CANOpen {
     pub fn new(bus_name: &str, sync_period: u64) -> Result<CANOpen, CANSocketOpenError> {
+        let colors_line = ColoredLevelConfig::new()
+            .error(Color::Red)
+            .warn(Color::Yellow)
+            .info(Color::White)
+            .debug(Color::Green)
+            .trace(Color::Blue);
+
+        fern::Dispatch::new()
+            .format(move |out, message, record| {
+                out.finish(format_args!(
+                    "{}{}[{}][{}] {}",
+                    format_args!(
+                        "\x1B[{}m",
+                        colors_line.get_color(&record.level()).to_fg_str()
+                    ),
+                    chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                    record.target(),
+                    record.level(),
+                    message
+                ))
+            })
+            .chain(std::io::stdout())
+            .apply();
+
         let bus = CANSocket::open(bus_name)?;
         bus.set_nonblocking(true)?;
         let frame = CANFrame::new(0x80, &[], false, false).unwrap();
-        bus.bcm_send_periodically(sync_period, frame).unwrap();
+        bus.bcm_send_periodically(sync_period, frame)
+            .map_err(CANSocketOpenError::IOError)?;
 
         let (frame_received_sender, frame_received_receiver) = crossbeam::unbounded::<CANFrame>();
         let (frame_to_send_sender, frame_to_send_receiver) = crossbeam::unbounded::<CANFrame>();
 
         let thread_handle = std::thread::spawn(move || loop {
             while let Ok(frame) = bus.read_frame() {
-                frame_received_sender.send(frame);
+                if frame_received_sender.send(frame).is_err() {
+                    debug!("Failed to send received CAN frame to high level system.");
+                }
             }
             while let Ok(frame) = frame_to_send_receiver.try_recv() {
-                bus.write_frame(&frame).expect("failed to write frame.");
+                if bus.write_frame(&frame).is_err() {
+                    debug!("Failed to send CAN frame over the bus.");
+                }
             }
             std::thread::sleep(Duration::from_micros(500));
         });
@@ -182,9 +213,13 @@ impl From<CANFrame> for Option<CANOpenNodeMessage> {
 impl From<CANOpenNodeCommand> for CANFrame {
     fn from(command: CANOpenNodeCommand) -> Self {
         match command {
-            CANOpenNodeCommand::SendPDO(id, pdo, data, size) => {
-                CANFrame::new(pdo.get_to_device_id() | id as u32, &data[..size], false, false).unwrap()
-            }
+            CANOpenNodeCommand::SendPDO(id, pdo, data, size) => CANFrame::new(
+                pdo.get_to_device_id() | id as u32,
+                &data[..size],
+                false,
+                false,
+            )
+            .unwrap(),
             CANOpenNodeCommand::SendNMT(id, command) => {
                 CANFrame::new(0x700 | id as u32, &[command.into()], false, false).unwrap()
             }
