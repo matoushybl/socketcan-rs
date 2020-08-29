@@ -157,7 +157,7 @@ const BCM_SETTIMER: u16 = 0x0001;
 const BCM_STARTTIMER: u16 = 0x0002;
 const TX_SETUP: u32 = 1;
 
-#[repr(C)]
+#[repr(C, align(8))]
 struct BCMMessageHeader {
     opcode: u32,
     flags: u32,
