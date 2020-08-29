@@ -290,3 +290,83 @@ impl ControllerSpecificErrorInformation for CANFrame {
         }
     }
 }
+
+use std::io::Error;
+use std::fmt::{Display, Formatter};
+
+#[derive(Debug)]
+/// Errors opening socket
+pub enum CANSocketOpenError {
+    /// Device could not be found
+    LookupError(nix::Error),
+
+    /// System error while trying to look up device name
+    IOError(Error),
+}
+
+impl Display for CANSocketOpenError {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match *self {
+            CANSocketOpenError::LookupError(ref e) => write!(f, "CAN Device not found: {}", e),
+            CANSocketOpenError::IOError(ref e) => write!(f, "IO: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for CANSocketOpenError {
+    fn description(&self) -> &str {
+        match *self {
+            CANSocketOpenError::LookupError(_) => "can device not found",
+            CANSocketOpenError::IOError(ref e) => e.description(),
+        }
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        match *self {
+            CANSocketOpenError::LookupError(ref e) => Some(e),
+            CANSocketOpenError::IOError(ref e) => Some(e),
+        }
+    }
+}
+
+
+#[derive(Debug, Copy, Clone)]
+/// Error that occurs when creating CAN packets
+pub enum ConstructionError {
+    /// CAN ID was outside the range of valid IDs
+    IDTooLarge,
+    /// More than 8 Bytes of payload data were passed in
+    TooMuchData,
+}
+
+impl Display for ConstructionError {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match *self {
+            ConstructionError::IDTooLarge => write!(f, "CAN ID too large"),
+            ConstructionError::TooMuchData => {
+                write!(f, "Payload is larger than CAN maximum of 8 bytes")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ConstructionError {
+    fn description(&self) -> &str {
+        match *self {
+            ConstructionError::IDTooLarge => "can id too large",
+            ConstructionError::TooMuchData => "too much data",
+        }
+    }
+}
+
+impl From<nix::Error> for CANSocketOpenError {
+    fn from(e: nix::Error) -> CANSocketOpenError {
+        CANSocketOpenError::LookupError(e)
+    }
+}
+
+impl From<Error> for CANSocketOpenError {
+    fn from(e: Error) -> CANSocketOpenError {
+        CANSocketOpenError::IOError(e)
+    }
+}

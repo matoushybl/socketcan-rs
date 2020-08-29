@@ -29,7 +29,9 @@ impl CANOpen {
                 frame_received_sender.send(frame);
             }
             while let Ok(frame) = frame_to_send_receiver.try_recv() {
-                bus.write_frame(&frame).expect("failed to write frame.");
+                if bus.write_frame(&frame).is_err() {
+                    println!("Failed to send message over CAN.");
+                }
             }
             std::thread::sleep(Duration::from_micros(500));
         });
