@@ -33,7 +33,7 @@ impl TestNode {
 }
 
 fn main() {
-    let can_open = CANOpen::new("can0", 50000).unwrap();
+    let can_open = CANOpen::new("can0", Some(50000)).unwrap();
     let _device = TestNode::new(&can_open, 5);
     loop {}
 }

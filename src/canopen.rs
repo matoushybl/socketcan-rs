@@ -17,7 +17,7 @@ pub struct CANOpenHandle {
 }
 
 impl CANOpen {
-    pub fn new(bus_name: &str, sync_period: u64) -> Result<CANOpen, CANSocketOpenError> {
+    pub fn new(bus_name: &str, sync_period: Option<u64>) -> Result<CANOpen, CANSocketOpenError> {
         let colors_line = ColoredLevelConfig::new()
             .error(Color::Red)
             .warn(Color::Yellow)
@@ -44,9 +44,11 @@ impl CANOpen {
 
         let bus = CANSocket::open(bus_name)?;
         bus.set_nonblocking(true)?;
-        let frame = CANFrame::new(0x80, &[], false, false).unwrap();
-        bus.bcm_send_periodically(sync_period, frame)
-            .map_err(CANSocketOpenError::IOError)?;
+        if let Some(sync_period) = sync_period {
+            let frame = CANFrame::new(0x80, &[], false, false).unwrap();
+            bus.bcm_send_periodically(sync_period, frame)
+                .map_err(CANSocketOpenError::IOError)?;
+        }
 
         let (frame_received_sender, frame_received_receiver) = crossbeam::unbounded::<CANFrame>();
         let (frame_to_send_sender, frame_to_send_receiver) = crossbeam::unbounded::<CANFrame>();
