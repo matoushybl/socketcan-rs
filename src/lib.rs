@@ -139,7 +139,7 @@ fn c_timeval_new(t: time::Duration) -> timeval {
 }
 
 #[derive(Debug)]
-#[repr(C)]
+#[repr(C, align(8))]
 struct CANAddr {
     _af_can: c_short,
     if_index: c_int, // address familiy,
@@ -617,7 +617,7 @@ impl Drop for CANSocket {
 /// Uses the same memory layout as the underlying kernel struct for performance
 /// reasons.
 #[derive(Debug, Copy, Clone)]
-#[repr(C)]
+#[repr(C, align(8))]
 pub struct CANFrame {
     /// 32 bit CAN_ID + EFF/RTR/ERR flags
     _id: u32,
@@ -754,7 +754,7 @@ impl fmt::UpperHex for CANFrame {
 /// Uses the same memory layout as the underlying kernel struct for performance
 /// reasons.
 #[derive(Debug, Copy, Clone)]
-#[repr(C)]
+#[repr(C, align(8))]
 pub struct CANFilter {
     _id: u32,
     _mask: u32,
