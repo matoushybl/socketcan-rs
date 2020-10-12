@@ -85,12 +85,6 @@ impl CANOpen {
     }
 }
 
-impl Drop for CANOpen {
-    fn drop(&mut self) {
-        self.thread_handle.take().unwrap().join().unwrap();
-    }
-}
-
 #[derive(Debug)]
 pub enum PDO {
     PDO1,
