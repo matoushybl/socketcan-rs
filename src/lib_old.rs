@@ -106,48 +106,11 @@ impl<E: fmt::Debug> ShouldRetry for io::Result<E> {
     }
 }
 
-// constants stolen from C headers
-const AF_CAN: c_int = 29;
-const PF_CAN: c_int = 29;
-const CAN_RAW: c_int = 1;
-const CAN_BCM: c_int = 2;
-const SOL_CAN_BASE: c_int = 100;
-const SOL_CAN_RAW: c_int = SOL_CAN_BASE + CAN_RAW;
-const CAN_RAW_FILTER: c_int = 1;
-const CAN_RAW_ERR_FILTER: c_int = 2;
-
-/// if set, indicate 29 bit extended format
-pub const EFF_FLAG: u32 = 0x80000000;
-
-/// remote transmission request flag
-pub const RTR_FLAG: u32 = 0x40000000;
-
-/// error flag
-pub const ERR_FLAG: u32 = 0x20000000;
-
-/// valid bits in standard frame id
-pub const SFF_MASK: u32 = 0x000007ff;
-
-/// valid bits in extended frame id
-pub const EFF_MASK: u32 = 0x1fffffff;
-
-/// valid bits in error frame
-pub const ERR_MASK: u32 = 0x1fffffff;
-
 fn c_timeval_new(t: time::Duration) -> timeval {
     timeval {
         tv_sec: t.as_secs() as time_t,
         tv_usec: (t.subsec_nanos() / 1000) as suseconds_t,
     }
-}
-
-#[derive(Debug)]
-#[repr(C, align(8))]
-struct CANAddr {
-    _af_can: c_short,
-    if_index: c_int, // address familiy,
-    rx_id: u32,
-    tx_id: u32,
 }
 
 #[repr(C)]
@@ -172,82 +135,6 @@ struct BCMMessageHeader {
     frames: CANFrame,
 }
 
-#[derive(Debug)]
-/// Errors opening socket
-pub enum CANSocketOpenError {
-    /// Device could not be found
-    LookupError(nix::Error),
-
-    /// System error while trying to look up device name
-    IOError(io::Error),
-}
-
-impl fmt::Display for CANSocketOpenError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            CANSocketOpenError::LookupError(ref e) => write!(f, "CAN Device not found: {}", e),
-            CANSocketOpenError::IOError(ref e) => write!(f, "IO: {}", e),
-        }
-    }
-}
-
-impl error::Error for CANSocketOpenError {
-    fn description(&self) -> &str {
-        match *self {
-            CANSocketOpenError::LookupError(_) => "can device not found",
-            CANSocketOpenError::IOError(ref e) => e.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            CANSocketOpenError::LookupError(ref e) => Some(e),
-            CANSocketOpenError::IOError(ref e) => Some(e),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-/// Error that occurs when creating CAN packets
-pub enum ConstructionError {
-    /// CAN ID was outside the range of valid IDs
-    IDTooLarge,
-    /// More than 8 Bytes of payload data were passed in
-    TooMuchData,
-}
-
-impl fmt::Display for ConstructionError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ConstructionError::IDTooLarge => write!(f, "CAN ID too large"),
-            ConstructionError::TooMuchData => {
-                write!(f, "Payload is larger than CAN maximum of 8 bytes")
-            }
-        }
-    }
-}
-
-impl error::Error for ConstructionError {
-    fn description(&self) -> &str {
-        match *self {
-            ConstructionError::IDTooLarge => "can id too large",
-            ConstructionError::TooMuchData => "too much data",
-        }
-    }
-}
-
-impl From<nix::Error> for CANSocketOpenError {
-    fn from(e: nix::Error) -> CANSocketOpenError {
-        CANSocketOpenError::LookupError(e)
-    }
-}
-
-impl From<io::Error> for CANSocketOpenError {
-    fn from(e: io::Error) -> CANSocketOpenError {
-        CANSocketOpenError::IOError(e)
-    }
-}
-
 /// A socket for a CAN device.
 ///
 /// Will be closed upon deallocation. To close manually, use std::drop::Drop.
@@ -263,10 +150,6 @@ impl CANSocket {
     ///
     /// Usually the more common case, opens a socket can device by name, such
     /// as "vcan0" or "socan0".
-    pub fn open(ifname: &str) -> Result<CANSocket, CANSocketOpenError> {
-        let if_index = if_nametoindex(ifname)?;
-        CANSocket::open_if(if_index)
-    }
 
     /// Open CAN device by interface number.
     ///
@@ -344,88 +227,6 @@ impl CANSocket {
         })
     }
 
-    fn close(&mut self) -> io::Result<()> {
-        unsafe {
-            let rv = close(self.fd.as_raw_fd());
-            if rv != -1 {
-                return Err(io::Error::last_os_error());
-            }
-        }
-        unsafe {
-            let rv = close(self.bcm_fd.as_raw_fd());
-            if rv != -1 {
-                return Err(io::Error::last_os_error());
-            }
-        }
-        Ok(())
-    }
-
-    /// Blocking read a single can frame.
-    pub async fn read_frame(&mut self) -> io::Result<CANFrame> {
-        let mut frame = CANFrame {
-            _id: 0,
-            _data_len: 0,
-            _pad: 0,
-            _res0: 0,
-            _res1: 0,
-            _data: [0; 8],
-        };
-
-        self.fd.read(&mut buf).await?;
-
-        let read_rv = unsafe {
-            let frame_ptr = &mut frame as *mut CANFrame;
-            read(
-                self.fd.as_raw_fd(),
-                frame_ptr as *mut c_void,
-                size_of::<CANFrame>(),
-            )
-        };
-
-        if read_rv as usize != size_of::<CANFrame>() {
-            return Err(io::Error::last_os_error());
-        }
-
-        Ok(frame)
-    }
-
-    /// Write a single can frame.
-    ///
-    /// Note that this function can fail with an `EAGAIN` error or similar.
-    /// Use `write_frame_insist` if you need to be sure that the message got
-    /// sent or failed.
-    pub fn write_frame(&self, frame: &CANFrame) -> io::Result<()> {
-        // not a mutable reference needed (see std::net::UdpSocket) for
-        // a comparison
-        // debug!("Sending: {:?}", frame);
-
-        let write_rv = unsafe {
-            let frame_ptr = frame as *const CANFrame;
-            write(self.fd, frame_ptr as *const c_void, size_of::<CANFrame>())
-        };
-
-        if write_rv as usize != size_of::<CANFrame>() {
-            return Err(io::Error::last_os_error());
-        }
-
-        Ok(())
-    }
-
-    /// Blocking write a single can frame, retrying until it gets sent
-    /// successfully.
-    pub fn write_frame_insist(&self, frame: &CANFrame) -> io::Result<()> {
-        loop {
-            match self.write_frame(frame) {
-                Ok(v) => return Ok(v),
-                Err(e) => {
-                    if !e.should_retry() {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-    }
-
     pub fn bcm_send_periodically(&self, microseconds: u64, frame: CANFrame) -> io::Result<()> {
         let bcm_message = BCMMessageHeader {
             opcode: TX_SETUP,
@@ -459,33 +260,6 @@ impl CANSocket {
         }
 
         return Ok(());
-    }
-
-    /// Sets the filter mask on the socket.
-    pub fn set_filter(&self, filters: &[CANFilter]) -> io::Result<()> {
-        // TODO: Handle different *_FILTER sockopts.
-
-        let rv = if filters.len() < 1 {
-            // clears all filters
-            unsafe { setsockopt(self.fd, SOL_CAN_RAW, CAN_RAW_FILTER, 0 as *const c_void, 0) }
-        } else {
-            unsafe {
-                let filters_ptr = &filters[0] as *const CANFilter;
-                setsockopt(
-                    self.fd,
-                    SOL_CAN_RAW,
-                    CAN_RAW_FILTER,
-                    filters_ptr as *const c_void,
-                    (size_of::<CANFilter>() * filters.len()) as u32,
-                )
-            }
-        };
-
-        if rv != 0 {
-            return Err(io::Error::last_os_error());
-        }
-
-        Ok(())
     }
 
     /// Disable reception of CAN frames.

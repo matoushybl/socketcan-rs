@@ -10,7 +10,6 @@ edition = "2018"
 
 [dependencies]
 hex = "0.4"
-itertools = "0.8"
 libc = "0.2"
 nix = "0.15"
 crossbeam = "0.7"
@@ -20,6 +19,7 @@ colored = "1.9.3"
 log = "0.4.11"
 mio = { version = "0.7.5", features = ["os-poll"] }
 tokio = { version = "0.3.3", features = ["full"] }
+thiserror = "1.0.22"
 
 [dependencies.fern]
 version = "0.6.0"
