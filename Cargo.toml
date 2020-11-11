@@ -21,6 +21,9 @@ mio = { version = "0.7.5", features = ["os-poll"] }
 tokio = { version = "0.3.3", features = ["full"] }
 thiserror = "1.0.22"
 
+[dev-dependencies]
+serial_test = "*"
+
 [dependencies.fern]
 version = "0.6.0"
 features = ["colored"]

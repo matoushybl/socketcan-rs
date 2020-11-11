@@ -1,17 +1,18 @@
 use crate::socketcan::CANFrame;
+use crate::OpenError;
 use tokio::prelude::io::unix::AsyncFd;
 
-struct CANSocket {
+pub struct CANSocket {
     async_fd: AsyncFd<super::CANSocket>,
 }
 
 impl CANSocket {
-    pub fn new(interface_name: &str) -> Self {
-        let socket = super::CANSocket::new(interface_name).unwrap();
-        socket.set_nonblocking();
-        Self {
+    pub fn new(interface_name: &str) -> Result<Self, OpenError> {
+        let socket = super::CANSocket::new(interface_name)?;
+        socket.set_nonblocking().map_err(OpenError::IOError)?;
+        Ok(Self {
             async_fd: AsyncFd::new(socket).unwrap(),
-        }
+        })
     }
 
     pub async fn read(&self) -> std::io::Result<CANFrame> {
@@ -32,20 +33,16 @@ impl CANSocket {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::time::Duration;
 
     const CAN: &str = "can0";
 
     #[tokio::test]
-    async fn async_read() {
-        let socket = CANSocket::new(CAN);
-        let _ = socket.read().await;
-    }
-
-    #[tokio::test]
+    #[serial]
     async fn async_bidirectional() {
         let a = tokio::task::spawn({
-            let socket = CANSocket::new(CAN);
+            let socket = CANSocket::new(CAN).unwrap();
             async move {
                 loop {
                     match tokio::time::timeout(Duration::from_secs(2), socket.read()).await {
@@ -66,7 +63,7 @@ mod tests {
         });
 
         let b = tokio::spawn({
-            let socket = CANSocket::new(CAN);
+            let socket = CANSocket::new(CAN).unwrap();
             async move {
                 let mut interval = tokio::time::interval(Duration::from_millis(10));
                 for _ in 0i8..100i8 {

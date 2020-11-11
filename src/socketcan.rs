@@ -31,6 +31,11 @@ pub const EFF_MASK: u32 = 0x1fffffff;
 /// valid bits in error frame
 pub const ERR_MASK: u32 = 0x1fffffff;
 
+// BCM
+pub const BCM_SETTIMER: u16 = 0x0001;
+pub const BCM_STARTTIMER: u16 = 0x0002;
+pub const TX_SETUP: u32 = 1;
+
 #[derive(Debug)]
 #[repr(C, align(8))]
 pub(crate) struct CANAddr {
@@ -199,4 +204,22 @@ impl CANFilter {
         // TODO return error on wrong id
         Ok(CANFilter { id, mask })
     }
+}
+
+#[repr(C, align(8))]
+pub struct BCMInterval {
+    pub tv_sec: libc::c_long,
+    pub tv_usec: libc::c_long,
+}
+
+#[repr(C, align(8))]
+pub struct BCMMessageHeader {
+    pub opcode: u32,
+    pub flags: u32,
+    pub count: u32,
+    pub ival1: BCMInterval,
+    pub ival2: BCMInterval,
+    pub can_id: u32,
+    pub nframes: u32,
+    pub frames: CANFrame,
 }
