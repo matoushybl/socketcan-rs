@@ -160,6 +160,14 @@ impl CANFrame {
         &self.data[..(self.data_len as usize)]
     }
 
+    pub fn raw_data(&self) -> [u8; 8] {
+        self.data
+    }
+
+    pub fn len(&self) -> usize {
+        self.data_len as usize
+    }
+
     // #[inline(always)]
     // pub fn error(&self) -> Result<CANError, CANErrorDecodingFailure> {
     //     CANError::from_frame(self)

@@ -43,6 +43,7 @@
 
 pub mod async_can;
 pub mod bcm;
+pub mod canopen;
 mod socketcan;
 mod util;
 
@@ -50,6 +51,8 @@ use std::mem::size_of;
 use std::os::unix::prelude::*;
 
 use crate::socketcan::{CANAddr, CANFilter, CANFrame};
+use colored::Color;
+use fern::colors::ColoredLevelConfig;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -66,6 +69,7 @@ pub struct CANSocket {
 
 impl CANSocket {
     pub fn new(interface_name: &str) -> Result<Self, OpenError> {
+        Self::setup_logging();
         let interface_index =
             nix::net::if_::if_nametoindex(interface_name).map_err(OpenError::LookupError)?;
         let sock_fd =
@@ -227,6 +231,32 @@ impl CANSocket {
             libc::SO_SNDTIMEO,
             &util::c_timeval_new(duration),
         )
+    }
+
+    fn setup_logging() {
+        let colors_line = ColoredLevelConfig::new()
+            .error(Color::Red)
+            .warn(Color::Yellow)
+            .info(Color::White)
+            .debug(Color::Green)
+            .trace(Color::Blue);
+
+        let _ = fern::Dispatch::new()
+            .format(move |out, message, record| {
+                out.finish(format_args!(
+                    "{}{}[{}][{}] {}",
+                    format_args!(
+                        "\x1B[{}m",
+                        colors_line.get_color(&record.level()).to_fg_str()
+                    ),
+                    chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                    record.target(),
+                    record.level(),
+                    message
+                ))
+            })
+            .chain(std::io::stdout())
+            .apply();
     }
 }
 
