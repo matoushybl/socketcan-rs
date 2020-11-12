@@ -12,9 +12,9 @@ pub enum CANOpenNodeCommand {
 #[derive(Debug)]
 pub enum CANOpenNodeMessage {
     SyncReceived,
-    PDOReceived(PDO, [u8; 8], usize),
-    NMTReceived(NMTState),
-    SDOReceived(SDOControlByte, u16, u8, [u8; 4], u8),
+    PDOReceived(u8, PDO, [u8; 8], usize),
+    NMTReceived(u8, NMTState),
+    SDOReceived(u8, SDOControlByte, u16, u8, [u8; 4], u8),
 }
 
 #[derive(Debug, Error)]
@@ -185,24 +185,29 @@ impl TryFrom<CANFrame> for CANOpenNodeMessage {
 
     fn try_from(frame: CANFrame) -> Result<Self, Self::Error> {
         let frame_id = frame.id() & 0xf80;
+        let device_id: u8 = (frame_id.id() & 0x7f) as u8;
         match frame_id {
             0x80 => Ok(CANOpenNodeMessage::SyncReceived),
             0x180 => Ok(CANOpenNodeMessage::PDOReceived(
+                device_id,
                 PDO::PDO1,
                 frame.raw_data(),
                 frame.len(),
             )),
             0x280 => Ok(CANOpenNodeMessage::PDOReceived(
+                device_id,
                 PDO::PDO2,
                 frame.raw_data(),
                 frame.len(),
             )),
             0x380 => Ok(CANOpenNodeMessage::PDOReceived(
+                device_id,
                 PDO::PDO3,
                 frame.raw_data(),
                 frame.len(),
             )),
             0x480 => Ok(CANOpenNodeMessage::PDOReceived(
+                device_id,
                 PDO::PDO4,
                 frame.raw_data(),
                 frame.len(),
@@ -212,7 +217,10 @@ impl TryFrom<CANFrame> for CANOpenNodeMessage {
             //     LittleEndian::read_u16(&frame._data[0..2]),
             //     frame._data[2],
             // )),
-            0x700 => Ok(CANOpenNodeMessage::NMTReceived(frame.data()[0].into())),
+            0x700 => Ok(CANOpenNodeMessage::NMTReceived(
+                device_id,
+                frame.data()[0].into(),
+            )),
             _ => Err(MessageParseError::InvalidID(frame_id)),
         }
     }
