@@ -185,7 +185,7 @@ impl TryFrom<CANFrame> for CANOpenNodeMessage {
 
     fn try_from(frame: CANFrame) -> Result<Self, Self::Error> {
         let frame_id = frame.id() & 0xf80;
-        let device_id: u8 = (frame_id.id() & 0x7f) as u8;
+        let device_id: u8 = (frame.id() & 0x7f) as u8;
         match frame_id {
             0x80 => Ok(CANOpenNodeMessage::SyncReceived),
             0x180 => Ok(CANOpenNodeMessage::PDOReceived(
