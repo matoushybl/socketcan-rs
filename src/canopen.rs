@@ -54,7 +54,7 @@ impl CANOpenSocket {
     }
 }
 
-mod async_canopen {
+pub mod async_canopen {
     use crate::async_can::CANSocket;
     use crate::bcm::BCMSocket;
     use crate::socketcan::CANFrame;
