@@ -47,10 +47,12 @@ pub mod canopen;
 mod socketcan;
 mod util;
 
+pub use socketcan::CANFrame;
+
 use std::mem::size_of;
 use std::os::unix::prelude::*;
 
-use crate::socketcan::{CANAddr, CANFilter, CANFrame};
+use crate::socketcan::{CANAddr, CANFilter};
 use colored::Color;
 use fern::colors::ColoredLevelConfig;
 use thiserror::Error;

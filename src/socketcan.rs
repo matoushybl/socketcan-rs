@@ -4,14 +4,14 @@ use std::fmt::Display;
 use thiserror::Error;
 
 // constants stolen from C headers
-pub const AF_CAN: c_int = 29;
-pub const PF_CAN: c_int = 29;
-pub const CAN_RAW: c_int = 1;
-pub const CAN_BCM: c_int = 2;
-pub const SOL_CAN_BASE: c_int = 100;
-pub const SOL_CAN_RAW: c_int = SOL_CAN_BASE + CAN_RAW;
-pub const CAN_RAW_FILTER: c_int = 1;
-pub const CAN_RAW_ERR_FILTER: c_int = 2;
+pub(crate) const AF_CAN: c_int = 29;
+pub(crate) const PF_CAN: c_int = 29;
+pub(crate) const CAN_RAW: c_int = 1;
+pub(crate) const CAN_BCM: c_int = 2;
+pub(crate) const SOL_CAN_BASE: c_int = 100;
+pub(crate) const SOL_CAN_RAW: c_int = SOL_CAN_BASE + CAN_RAW;
+pub(crate) const CAN_RAW_FILTER: c_int = 1;
+pub(crate) const CAN_RAW_ERR_FILTER: c_int = 2;
 
 /// if set, indicate 29 bit extended format
 pub const EFF_FLAG: u32 = 0x80000000;
@@ -32,9 +32,9 @@ pub const EFF_MASK: u32 = 0x1fffffff;
 pub const ERR_MASK: u32 = 0x1fffffff;
 
 // BCM
-pub const BCM_SETTIMER: u16 = 0x0001;
-pub const BCM_STARTTIMER: u16 = 0x0002;
-pub const TX_SETUP: u32 = 1;
+pub(crate) const BCM_SETTIMER: u16 = 0x0001;
+pub(crate) const BCM_STARTTIMER: u16 = 0x0002;
+pub(crate) const TX_SETUP: u32 = 1;
 
 #[derive(Debug)]
 #[repr(C, align(8))]
