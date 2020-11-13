@@ -13,6 +13,7 @@ pub enum CANOpenNodeCommand {
 pub enum CANOpenNodeMessage {
     SyncReceived,
     PDOReceived(u8, PDO, [u8; 8], usize),
+    PDOSent(u8, PDO, [u8; 8], usize),
     NMTReceived(u8, NMTState),
     SDOReceived(u8, SDOControlByte, u16, u8, [u8; 4], u8),
 }
@@ -194,7 +195,19 @@ impl TryFrom<CANFrame> for CANOpenNodeMessage {
                 frame.raw_data(),
                 frame.len(),
             )),
+            0x200 => Ok(CANOpenNodeMessage::PDOSent(
+                device_id,
+                PDO::PDO1,
+                frame.raw_data(),
+                frame.len(),
+            )),
             0x280 => Ok(CANOpenNodeMessage::PDOReceived(
+                device_id,
+                PDO::PDO2,
+                frame.raw_data(),
+                frame.len(),
+            )),
+            0x300 => Ok(CANOpenNodeMessage::PDOSent(
                 device_id,
                 PDO::PDO2,
                 frame.raw_data(),
@@ -206,7 +219,19 @@ impl TryFrom<CANFrame> for CANOpenNodeMessage {
                 frame.raw_data(),
                 frame.len(),
             )),
+            0x400 => Ok(CANOpenNodeMessage::PDOSent(
+                device_id,
+                PDO::PDO3,
+                frame.raw_data(),
+                frame.len(),
+            )),
             0x480 => Ok(CANOpenNodeMessage::PDOReceived(
+                device_id,
+                PDO::PDO4,
+                frame.raw_data(),
+                frame.len(),
+            )),
+            0x500 => Ok(CANOpenNodeMessage::PDOSent(
                 device_id,
                 PDO::PDO4,
                 frame.raw_data(),

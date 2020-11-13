@@ -47,7 +47,7 @@ pub mod canopen;
 mod socketcan;
 mod util;
 
-pub use socketcan::CANFrame;
+pub use self::socketcan::CANFrame;
 
 use std::mem::size_of;
 use std::os::unix::prelude::*;
