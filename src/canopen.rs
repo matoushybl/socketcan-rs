@@ -94,7 +94,7 @@ pub mod async_canopen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PDO {
     PDO1,
     PDO2,
@@ -123,7 +123,7 @@ impl PDO {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum NMTState {
     Initializing,
     Stopped,
@@ -142,7 +142,7 @@ impl From<u8> for NMTState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum NMTCommand {
     GoToOperational,
     GoToStopped,
@@ -163,7 +163,7 @@ impl From<NMTCommand> for u8 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct SDOControlByte {
     ccs: u8,
     bytes_not_containing_data: u8,
@@ -175,7 +175,7 @@ impl SDOControlByte {}
 
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Copy, Clone, Debug, Error, PartialEq)]
 pub enum MessageParseError {
     #[error("Invalid ID {0} found in the frame.")]
     InvalidID(u32),
