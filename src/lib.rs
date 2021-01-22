@@ -286,7 +286,7 @@ mod tests {
     use serial_test::serial;
     use tokio::time::Duration;
 
-    const CAN: &str = "can0";
+    const CAN: &str = "vcan0";
 
     #[test]
     #[serial]

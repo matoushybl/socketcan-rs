@@ -1,6 +1,6 @@
 use crate::socketcan::CANFrame;
 use crate::OpenError;
-use tokio::prelude::io::unix::AsyncFd;
+use tokio::io::unix::AsyncFd;
 
 pub struct CANSocket {
     async_fd: AsyncFd<super::CANSocket>,
@@ -16,17 +16,33 @@ impl CANSocket {
     }
 
     pub async fn read(&self) -> std::io::Result<CANFrame> {
-        self.async_fd
+        match self
+            .async_fd
             .readable()
             .await?
-            .with_io(|| self.async_fd.get_ref().read())
+            .try_io(|fd| fd.get_ref().read())
+        {
+            Ok(maybe_frame) => maybe_frame,
+            Err(_) => std::io::Result::Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "Tokio poll failed. Try again.",
+            )),
+        }
     }
 
     pub async fn write(&self, frame: &CANFrame) -> std::io::Result<()> {
-        self.async_fd
+        match self
+            .async_fd
             .writable()
             .await?
-            .with_io(|| self.async_fd.get_ref().write(frame))
+            .try_io(|fd| fd.get_ref().write(frame))
+        {
+            Ok(maybe_frame) => maybe_frame,
+            Err(_) => std::io::Result::Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "Tokio poll failed. Try again.",
+            )),
+        }
     }
 }
 
@@ -36,7 +52,7 @@ mod tests {
     use serial_test::serial;
     use std::time::Duration;
 
-    const CAN: &str = "can0";
+    const CAN: &str = "vcan0";
 
     #[tokio::test]
     #[serial]
