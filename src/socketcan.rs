@@ -214,7 +214,7 @@ impl CANFilter {
     }
 }
 
-#[repr(C, align(8))]
+// #[repr(C, align(8))]
 pub struct BCMInterval {
     pub tv_sec: libc::c_long,
     pub tv_usec: libc::c_long,

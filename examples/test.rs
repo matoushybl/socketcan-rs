@@ -31,5 +31,20 @@
 //         TestNode { id, node }
 //     }
 // }
-//
-fn main() {}
+
+use socketcan::bcm::BCMSocket;
+use socketcan::CANFrame;
+use socketcan::CANSocket;
+use std::error::Error;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let bus_name = "can0";
+    let socket = CANSocket::new(bus_name)?;
+    let bcm = BCMSocket::new(bus_name)?;
+
+    let frame = CANFrame::new(0x80, &[], false, false).unwrap();
+    bcm.send_periodically(50000, frame)?;
+
+    Ok(())
+}
