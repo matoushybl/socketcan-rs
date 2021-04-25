@@ -193,7 +193,7 @@ impl From<CANOpenNodeCommand> for CANFrame {
             )
             .unwrap(),
             CANOpenNodeCommand::SendNMT(id, command) => {
-                CANFrame::new(0x700 | id as u32, &[command.into()], false, false).unwrap()
+                CANFrame::new(0x000, &[command.into(), id], false, false).unwrap()
             }
             CANOpenNodeCommand::SendSDO(id, _, _, _, _, _) => {
                 CANFrame::new(0x580 | id as u32, &[], false, false).unwrap()
