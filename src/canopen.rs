@@ -6,14 +6,14 @@ use log::debug;
 use std::time::Duration;
 
 pub struct CANOpen {
-    sender: crossbeam::Sender<CANFrame>,
-    receiver: crossbeam::Receiver<CANFrame>,
+    sender: crossbeam::channel::Sender<CANFrame>,
+    receiver: crossbeam::channel::Receiver<CANFrame>,
     thread_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 pub struct CANOpenHandle {
-    pub sender: crossbeam::Sender<CANFrame>,
-    pub receiver: crossbeam::Receiver<CANFrame>,
+    pub sender: crossbeam::channel::Sender<CANFrame>,
+    pub receiver: crossbeam::channel::Receiver<CANFrame>,
 }
 
 impl CANOpen {
@@ -50,8 +50,10 @@ impl CANOpen {
                 .map_err(CANSocketOpenError::IOError)?;
         }
 
-        let (frame_received_sender, frame_received_receiver) = crossbeam::unbounded::<CANFrame>();
-        let (frame_to_send_sender, frame_to_send_receiver) = crossbeam::unbounded::<CANFrame>();
+        let (frame_received_sender, frame_received_receiver) =
+            crossbeam::channel::unbounded::<CANFrame>();
+        let (frame_to_send_sender, frame_to_send_receiver) =
+            crossbeam::channel::unbounded::<CANFrame>();
 
         let thread_handle = std::thread::spawn(move || loop {
             while let Ok(frame) = bus.read_frame() {
@@ -238,11 +240,11 @@ pub struct CANOpenNode {
 }
 
 impl CANOpenNode {
-    pub fn get_receiver(&self) -> crossbeam::Receiver<CANFrame> {
+    pub fn get_receiver(&self) -> crossbeam::channel::Receiver<CANFrame> {
         self.handle.receiver.clone()
     }
 
-    pub fn get_sender(&self) -> crossbeam::Sender<CANFrame> {
+    pub fn get_sender(&self) -> crossbeam::channel::Sender<CANFrame> {
         self.handle.sender.clone()
     }
 }
