@@ -1,7 +1,5 @@
 use super::*;
-use colored::Color;
 use crossbeam;
-use fern::colors::ColoredLevelConfig;
 use log::debug;
 use std::time::Duration;
 
@@ -18,30 +16,6 @@ pub struct CANOpenHandle {
 
 impl CANOpen {
     pub fn new(bus_name: &str, sync_period: Option<u64>) -> Result<CANOpen, CANSocketOpenError> {
-        let colors_line = ColoredLevelConfig::new()
-            .error(Color::Red)
-            .warn(Color::Yellow)
-            .info(Color::White)
-            .debug(Color::Green)
-            .trace(Color::Blue);
-
-        fern::Dispatch::new()
-            .format(move |out, message, record| {
-                out.finish(format_args!(
-                    "{}{}[{}][{}] {}",
-                    format_args!(
-                        "\x1B[{}m",
-                        colors_line.get_color(&record.level()).to_fg_str()
-                    ),
-                    chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                    record.target(),
-                    record.level(),
-                    message
-                ))
-            })
-            .chain(std::io::stdout())
-            .apply();
-
         let bus = CANSocket::open(bus_name)?;
         bus.set_nonblocking(true)?;
         if let Some(sync_period) = sync_period {
