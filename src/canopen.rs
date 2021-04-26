@@ -61,7 +61,7 @@ impl CANOpen {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PDO {
     PDO1,
     PDO2,
@@ -88,7 +88,7 @@ impl PDO {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum NMTState {
     Initializing,
     Stopped,
@@ -107,7 +107,7 @@ impl From<u8> for NMTState {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum NMTCommand {
     GoToOperational,
     GoToStopped,
@@ -128,7 +128,7 @@ impl From<NMTCommand> for u8 {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SDOControlByte {
     ccs: u8,
     bytes_not_containing_data: u8,
@@ -138,7 +138,7 @@ pub struct SDOControlByte {
 // TODO from and into traits
 impl SDOControlByte {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CANOpenNodeMessage {
     SyncReceived,
     PDOReceived(PDO, [u8; 8], u8),
@@ -202,7 +202,7 @@ impl From<CANOpenNodeCommand> for CANFrame {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CANOpenNodeCommand {
     SendPDO(u8, PDO, [u8; 8], usize),
     SendNMT(u8, NMTCommand),
